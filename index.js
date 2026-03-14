@@ -10,9 +10,9 @@ const client = new Client({
 });
 
 const CONFIG = {
-    welcomeChannelId: "1479292362675982497",
-    autoRoleId: "1479291984836427978",
-    // تأكد أن هذا الرابط يؤدي لصورتك في جيت هاب
+    welcomeChannelId: "1467260591767949609",
+    autoRoleId: "1467259879029735465",
+    // هذا الرابط يسحب صورتك مباشرة من ملفاتك في جيت هاب
     imageUrl: "https://raw.githubusercontent.com/jassmmossq1232-commits/profile_bot/main/background.png"
 };
 
@@ -21,7 +21,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
 
     // 1. إضافة الرتبة التلقائية
     const role = member.guild.roles.cache.get(CONFIG.autoRoleId);
-    if (role) await member.roles.add(role).catch(() => {});
+    if (role) await member.roles.add(role).catch(() => console.log("تأكد من رفع رتبة البوت فوق رتبة المواطن"));
 
     // 2. إرسال الترحيب HD (عمودي)
     const channel = member.guild.channels.cache.get(CONFIG.welcomeChannelId);

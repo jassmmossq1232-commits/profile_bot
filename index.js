@@ -13,8 +13,8 @@ const client = new Client({
 });
 
 const CONFIG = {
-    welcomeChannelId: "1479292362675982497",
-    invitedById: "1193908571096756298"
+    welcomeChannelId: "1467260591767949609",
+    invitedById: "1272279633341059146"
 };
 
 client.on(Events.GuildMemberAdd, async (member) => {

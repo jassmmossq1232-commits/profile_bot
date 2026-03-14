@@ -1,9 +1,8 @@
 const { Client, GatewayIntentBits, Partials, EmbedBuilder, Events, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField } = require('discord.js');
 const express = require('express');
 
-// --- [ نظام تشغيل 24 ساعة لـ Render ] ---
 const app = express();
-app.get('/', (req, res) => res.send('System Online ✅'));
+app.get('/', (req, res) => res.send('System is Online ✅'));
 app.listen(process.env.PORT || 3000);
 
 const client = new Client({
@@ -11,45 +10,67 @@ const client = new Client({
     partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
-// --- [ ⚙️ الإعدادات - عدل كل شيء من هنا بسهولة ] ---
+// --- [ ⚠️ إعدادات هامة - استبدل الكلمات بالعناوين الحقيقية ] ---
 const CONFIG = {
     prefix: "!",
-    embedColor: "#000000",
-    welcomeChannelId: "1479292362675982497",
-    
-    // منشن الشخص الثالث (اتركه كما هو أو ضع الآيدي)
-    thirdPersonMention: "ضع_آيدي_الشخص_أو_الرتبة_هنا", 
-    
-    adminRoleId: "ضع_آيدي_رتبة_الإدارة",
-    logsChannelId: "ضع_آيدي_روم_اللوق",
-
-    // تعديل أسامي التذاكر بسهولة من هنا
-    ticketOptions: [
-        { label: "دعم فني", emoji: "🛠️", value: "support" },
-        { label: "تقديم شكوى", emoji: "🚫", value: "report" },
-        { label: "استفسار", emoji: "❓", value: "ask" }
-    ]
+    embedColor: "#ff0000", // اللون الأحمر مثل صورتك الأخيرة
+    welcomeChannelId: "123456789", // ضع هنا آيدي روم الترحيب (أرقام فقط)
+    thirdPersonMentionId: "123456789", // ضع هنا آيدي الشخص أو الرتبة التي تود منشنها (أرقام فقط)
+    adminRoleId: "123456789", // آيدي رتبة الإدارة
+    logsChannelId: "123456789", // آيدي روم اللوق
+    welcomeImage: "https://i.imgur.com/39A5S57.png" // تأكد من أن الرابط يعمل وينتهي بصيغة صورة
 };
 
-// --- [ 1. نظام الترحيب المطابق للصورة ] ---
+// نظام الترحيب (صورة + نص)
 client.on(Events.GuildMemberAdd, async (member) => {
-    const channel = member.guild.channels.cache.get(CONFIG.welcomeChannelId);
-    if (!channel) return;
+    if (member.user.bot) return;
 
-    const welcomeEmbed = new EmbedBuilder()
-        .setColor(CONFIG.embedColor)
-        .setImage('https://i.imgur.com/39A5S57.png') // رابط الصورة الكبيرة (Coming Soon)
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 512 })) // صورة الشخص على اليمين
-        .setTimestamp();
+    // إضافة الرتبة التلقائية
+    const role = member.guild.roles.cache.get(settings.autoRole);
+    if (role) await member.roles.add(role).catch(() => {});
 
-    // نص الترحيب المطابق للصورة مع المنشن المزدوج
-    channel.send({ 
-        content: `**| - Welcome To ${member.guild.name}**\n**| - Member Name : <@${member.id}>**\n**| - Invited By : <@${CONFIG.thirdPersonMention}>**`, 
-        embeds: [welcomeEmbed] 
-    });
+    const welcomeChannel = member.guild.channels.cache.get(settings.welcomeChannel);
+    if (welcomeChannel) {
+        try {
+            // رسم صورة الترحيب
+            const background = await Canvas.loadImage(path.join(__dirname, 'background.png'));
+            const canvas = Canvas.createCanvas(background.width, background.height);
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+
+            // إضافة صورة العضو بشكل دائري
+            const radius = 65;
+            const centerX = canvas.width - radius - 60;
+            const centerY = radius + 60;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2, true);
+            ctx.closePath();
+            ctx.clip();
+            const avatar = await Canvas.loadImage(member.user.displayAvatarURL({ extension: 'jpg', size: 256 }));
+            ctx.drawImage(avatar, centerX - radius, centerY - radius, radius * 2, radius * 2);
+            ctx.restore();
+
+            const attachment = new AttachmentBuilder(canvas.toBuffer(), { name: 'welcome.png' });
+
+            // إرسال الصورة أولاً
+            await welcomeChannel.send({ files: [attachment] });
+
+            // إرسال الرسالة النصية المطابقة لطلبك
+            await welcomeChannel.send({
+                content: `**| - Welcome To SYNCE RP**\n**| - Member Name :** ${member}\n**| - Invited By :** <@${settings.invitedBy}>`
+            });
+
+        } catch (e) {
+            console.error("خطأ في ترحيب العضو:", e);
+        }
+    }
 });
 
-// --- [ 2. برودكاست متطور مع عداد حي وتقرير ] ---
+client.once('ready', () => console.log(`✅ تم تسجيل الدخول باسم ${client.user.tag}`));
+client.login(process.env.TOKEN);
+
+// --- [ نظام البرودكاست المتطور ] ---
 client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot || !message.content.startsWith(CONFIG.prefix + 'bc')) return;
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
@@ -60,7 +81,6 @@ client.on(Events.MessageCreate, async (message) => {
     const members = await message.guild.members.fetch();
     const total = members.filter(m => !m.user.bot).size;
     let success = 0;
-    let failed = 0;
 
     let progressMsg = await message.channel.send(`⏳ جاري الإرسال لـ **${total}** عضو...`);
 
@@ -69,34 +89,21 @@ client.on(Events.MessageCreate, async (message) => {
         try {
             await member.send(`${bcMsg}\n\n**رسالة من سيرفر: ${message.guild.name}**`);
             success++;
-            if (success % 10 === 0) await progressMsg.edit(`⏳ تم إرسال: ${success} من أصل ${total}...`);
-        } catch (e) {
-            failed++;
-        }
+        } catch (e) {}
     }
-
-    await progressMsg.edit(`✅ **تم الانتهاء!**\n\n👥 تم الإرسال لـ: \`${success}\`\n❌ فشل الإرسال لـ: \`${failed}\``);
+    await progressMsg.edit(`✅ تم الإرسال بنجاح لـ: \`${success}\` عضو.`);
 });
 
-// --- [ 3. نظام التذاكر المرن ] ---
+// --- [ نظام التذاكر ] ---
 client.on(Events.MessageCreate, async (message) => {
     if (message.content === CONFIG.prefix + 'setup' && message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        const embed = new EmbedBuilder()
-            .setTitle("Ticket System | نظام التذاكر")
-            .setDescription("لفتح تذكرة، اختر القسم المناسب من القائمة")
-            .setColor(CONFIG.embedColor);
-
         const menu = new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-                .setCustomId('ticket_select')
-                .setPlaceholder('إختر نوع القسم')
-                .addOptions(CONFIG.ticketOptions.map(opt => ({
-                    label: opt.label,
-                    emoji: opt.emoji,
-                    value: opt.value
-                })))
+            new StringSelectMenuBuilder().setCustomId('ticket_select').setPlaceholder('إختر نوع القسم').addOptions([
+                { label: "دعم فني", emoji: "🛠️", value: "support" },
+                { label: "تقديم شكوى", emoji: "🚫", value: "report" }
+            ])
         );
-        message.channel.send({ embeds: [embed], components: [menu] });
+        message.channel.send({ embeds: [new EmbedBuilder().setTitle("نظام التذاكر").setDescription("اختر من القائمة أدناه").setColor(CONFIG.embedColor)], components: [menu] });
     }
 });
 
@@ -107,12 +114,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
             type: ChannelType.GuildText,
             permissionOverwrites: [
                 { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+                { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel] },
                 { id: CONFIG.adminRoleId, allow: [PermissionsBitField.Flags.ViewChannel] }
             ]
         });
         const btn = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('c_t').setLabel('إغلاق').setStyle(ButtonStyle.Danger));
-        await channel.send({ content: `<@${interaction.user.id}>`, embeds: [new EmbedBuilder().setDescription(`تم فتح تذكرة في قسم: **${interaction.values[0]}**`).setColor(CONFIG.embedColor)], components: [btn] });
+        await channel.send({ content: `<@${interaction.user.id}>`, embeds: [new EmbedBuilder().setDescription(`تم فتح التذكرة بنجاح.`).setColor(CONFIG.embedColor)], components: [btn] });
         interaction.reply({ content: `✅ تذكرتك: ${channel}`, ephemeral: true });
     }
 
@@ -121,13 +128,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const log = msgs.reverse().map(m => `${m.author.tag}: ${m.content}`).join('\n');
         const logChan = interaction.guild.channels.cache.get(CONFIG.logsChannelId);
         if (logChan) await logChan.send({ content: `سجل تذكرة ${interaction.channel.name}`, files: [{ attachment: Buffer.from(log), name: 'log.txt' }] });
-        await interaction.reply("🔒 سيتم حذف القناة خلال 3 ثوانٍ...");
+        await interaction.reply("🔒 سيتم الحذف...");
         setTimeout(() => interaction.channel.delete(), 3000);
     }
 });
 
-client.once('ready', () => console.log(`✅ ${client.user.tag} Online!`));
-client.login(process.env.TOKEN);
-
-client.once('ready', () => console.log(`✅ ${client.user.tag} Is Ready!`));
 client.login(process.env.TOKEN);

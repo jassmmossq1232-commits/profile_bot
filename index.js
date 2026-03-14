@@ -20,7 +20,7 @@ const client = new Client({
 // --- [ ⚙️ الإعدادات ] ---
 const CONFIG = {
     prefix: "!",
-    welcomeChannelId: "1479292362675982497",
+    welcomeChannelId: "1467260591767949609",
     autoRoleId: "1479291984836427978", // رتبة المواطن (موجودة ✅)
     invitedById: "1193908571096756298"
 };
@@ -74,7 +74,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
     }
 });
 
-// --- [ 2. نظام البرودكاست (الخاص) 🍊 ] ---
+// --- [ 2. نظام البرودكاست (الخاص)  ] ---
 client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot || !message.content.startsWith(CONFIG.prefix + 'bc')) return;
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;

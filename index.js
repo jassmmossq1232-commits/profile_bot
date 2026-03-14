@@ -3,55 +3,38 @@ const Canvas = require('canvas');
 const path = require('path');
 const express = require('express');
 
-// نظام تشغيل البوت 24 ساعة
 const app = express();
-app.get('/', (req, res) => res.send('Welcome System HD Online ✅'));
-app.listen(process.env.PORT || 3000);
+app.get('/', (req, res) => res.send('System Online ✅'));
+app.listen(process.env.PORT || 10000); // المنفذ الصحيح لـ Render
 
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers, // ضروري جداً لرصد دخول الأعضاء
-    ],
-    partials: [Partials.User, Partials.GuildMember],
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+    partials: [Partials.GuildMember, Partials.User],
 });
 
-// --- [ الإعدادات ] ---
 const CONFIG = {
-    welcomeChannelId: "1467260591767949609", // ايدي روم الترحيب
-    invitedById: "1272279633341059146"       // ايدي الشخص الداعي
+    welcomeChannelId: "1479292362675982497",
+    invitedById: "1193908571096756298"
 };
 
-// نظام مانع التكرار لضمان إرسال رسالة واحدة فقط
-let antiSpam = new Set();
-
 client.on(Events.GuildMemberAdd, async (member) => {
-    if (member.user.bot) return;
-
-    // منع التكرار اللحظي
-    if (antiSpam.has(member.id)) return;
-    antiSpam.add(member.id);
-    setTimeout(() => antiSpam.delete(member.id), 10000); 
-
     const channel = member.guild.channels.cache.get(CONFIG.welcomeChannelId);
     if (!channel) return;
 
     try {
-        // 1. تحميل الخلفية من ملفات البوت لضمان الجودة الأصلية HD
-        // ملاحظة: يجب أن يكون اسم ملف الصورة في GitHub هو background.png
-        const background = await Canvas.loadImage(path.join(__dirname, 'background.png'));
+        // تحديد المسار بدقة لضمان قراءة ملف background.png
+        const imagePath = path.resolve(__dirname, 'background.png');
+        const background = await Canvas.loadImage(imagePath);
         
-        // إنشاء الكانفاس بنفس أبعاد الصورة العمودية الأصلية
+        // استخدام أبعاد صورتك العمودية الأصلية 100%
         const canvas = Canvas.createCanvas(background.width, background.height);
         const ctx = canvas.getContext('2d');
-        
-        // رسم الخلفية
         ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
-        // 2. ضبط صورة العضو في الزاوية العلوية اليمنى (المنطقة الفارغة)
-        const radius = 65; // حجم الدائرة
-        const centerX = canvas.width - radius - 50; // إزاحة من اليمين
-        const centerY = radius + 50;               // إزاحة من الأعلى
+        // وضع صورة العضو في الزاوية العلوية (المكان الأسود)
+        const radius = 65;
+        const centerX = canvas.width - radius - 55; // يمين
+        const centerY = radius + 60;               // أعلى
 
         ctx.save();
         ctx.beginPath();
@@ -59,23 +42,20 @@ client.on(Events.GuildMemberAdd, async (member) => {
         ctx.closePath();
         ctx.clip();
         
-        // جلب صورة العضو بدقة 512
         const avatar = await Canvas.loadImage(member.user.displayAvatarURL({ extension: 'png', size: 512 }));
         ctx.drawImage(avatar, centerX - radius, centerY - radius, radius * 2, radius * 2);
         ctx.restore();
 
         const attachment = new AttachmentBuilder(canvas.toBuffer(), { name: 'welcome-hd.png' });
 
-        // 3. الترتيب: إرسال الصورة أولاً
+        // الترتيب: الصورة أولاً ثم النص
         await channel.send({ files: [attachment] });
-        
-        // 4. إرسال النص تحت الصورة مباشرة
         await channel.send({ 
             content: `**| - Welcome To SYNC RP**\n**| - Member Name :** <@${member.id}>\n**| - Invited By :** <@${CONFIG.invitedById}>`
         });
 
     } catch (e) {
-        console.error("خطأ: تأكد من رفع ملف الصورة باسم background.png في GitHub بجانب index.js");
+        console.error("فشل العثور على الصورة، تأكد من وجود background.png:", e.message);
     }
 });
 

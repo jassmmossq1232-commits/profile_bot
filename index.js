@@ -3,48 +3,57 @@ const Canvas = require('canvas');
 const path = require('path');
 const express = require('express');
 
-// نظام Render ومنع التكرار
 const app = express();
-app.get('/', (req, res) => res.send('Bot Status: Online HD ✅'));
+app.get('/', (req, res) => res.send('System HD Online 🍊'));
 app.listen(process.env.PORT || 3000);
 
 const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ],
     partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
+// --- [ ⚙️ الإعدادات ] ---
 const CONFIG = {
     prefix: "!",
     welcomeChannelId: "1479292362675982497",
-    autoRoleId: "1479291984836427978",
+    autoRoleId: "1479291984836427978", // رتبة المواطن (موجودة ✅)
     invitedById: "1193908571096756298"
 };
 
 let antiSpam = new Set();
 
+// --- [ 1. نظام إضافة الرتبة + الترحيب ] ---
 client.on(Events.GuildMemberAdd, async (member) => {
     if (member.user.bot) return;
+
+    // منع التكرار (رسالة واحدة فقط)
     if (antiSpam.has(member.id)) return;
     antiSpam.add(member.id);
     setTimeout(() => antiSpam.delete(member.id), 10000); 
 
+    // أ- إضافة الرتبة التلقائية (تمت الإضافة ✅)
     const role = member.guild.roles.cache.get(CONFIG.autoRoleId);
-    if (role) await member.roles.add(role).catch(() => {});
+    if (role) {
+        await member.roles.add(role).catch(err => console.log("خطأ في الرتبة: تأكد من رفع رتبة البوت فوق رتبة المواطن."));
+    }
 
+    // ب- إرسال الترحيب بصورة HD
     const channel = member.guild.channels.cache.get(CONFIG.welcomeChannelId);
     if (channel) {
         try {
-            // سحب الملف المحلي بجودة HD وبأبعاده الأصلية
             const background = await Canvas.loadImage(path.join(__dirname, 'background.png'));
             const canvas = Canvas.createCanvas(background.width, background.height);
             const ctx = canvas.getContext('2d');
-            
             ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
-            // وضع صورة العضو في مكانها الصحيح (حسب الحجم السابق)
-            const radius = 65;
-            const centerX = canvas.width / 2 + 80; 
-            const centerY = 120; 
+            const radius = 75; 
+            const centerX = canvas.width / 2; 
+            const centerY = 145; 
 
             ctx.save();
             ctx.beginPath();
@@ -61,27 +70,30 @@ client.on(Events.GuildMemberAdd, async (member) => {
             await channel.send({ 
                 content: `**| - Welcome To SYNC RP**\n**| - Member Name :** <@${member.id}>\n**| - Invited By :** <@${CONFIG.invitedById}>`
             });
-        } catch (e) { console.error("Error loading background.png"); }
+        } catch (e) { console.error("تأكد من وجود background.png"); }
     }
 });
 
-// نظام البرودكاست 
+// --- [ 2. نظام البرودكاست (الخاص) 🍊 ] ---
 client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot || !message.content.startsWith(CONFIG.prefix + 'bc')) return;
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
+
     const bcMsg = message.content.split(' ').slice(1).join(' ');
-    if (!bcMsg) return message.reply("❌ اكتب الرسالة!");
+    if (!bcMsg) return message.reply("❌ اكتب الرسالة للإرسال في الخاص!");
+
     const members = await message.guild.members.fetch();
     let success = 0;
-    let status = await message.channel.send(`⏳ جاري الإرسال للخاص...`);
+    let status = await message.channel.send(`⏳ جاري الإرسال للجميع...`);
+
     for (const [id, member] of members) {
         if (member.user.bot) continue;
         try {
-            await member.send(`${bcMsg}\n\n**رسالة من سيرفر: ${message.guild.name}**`);
+            await member.send(`${bcMsg}\n\n**سيرفر: ${message.guild.name}**`);
             success++;
         } catch (e) {}
     }
-    await status.edit(`✅ تم الإرسال لـ ${success} عضو.`);
+    await status.edit(`✅ تم الإرسال لـ ${success} عضو بنجاح.`);
 });
 
 client.login(process.env.TOKEN);

@@ -15,7 +15,7 @@ const client = new Client({
 const CONFIG = {
     prefix: "!",
     embedColor: "#000000",
-    welcomeChannelId: "ضع_آيدي_روم_الترحيب",
+    welcomeChannelId: "1479292362675982497",
     
     // منشن الشخص الثالث (اتركه كما هو أو ضع الآيدي)
     thirdPersonMention: "ضع_آيدي_الشخص_أو_الرتبة_هنا", 

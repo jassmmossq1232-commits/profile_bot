@@ -5,7 +5,7 @@ const express = require('express');
 
 const app = express();
 app.get('/', (req, res) => res.send('System Online ✅'));
-app.listen(process.env.PORT || 10000); // المنفذ الصحيح لـ Render
+app.listen(process.env.PORT || 10000);
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
@@ -13,8 +13,8 @@ const client = new Client({
 });
 
 const CONFIG = {
-    welcomeChannelId: "1467260591767949609",
-    invitedById: "1272279633341059146"
+    welcomeChannelId: "1479292362675982497",
+    invitedById: "1193908571096756298"
 };
 
 client.on(Events.GuildMemberAdd, async (member) => {
@@ -22,19 +22,23 @@ client.on(Events.GuildMemberAdd, async (member) => {
     if (!channel) return;
 
     try {
-        // تحديد المسار بدقة لضمان قراءة ملف background.png
-        const imagePath = path.resolve(__dirname, 'background.png');
-        const background = await Canvas.loadImage(imagePath);
+        // قراءة الصورة بطريقة تضمن عدم حدوث Input Stream Error
+        const imagePath = path.join(__dirname, 'background.png');
         
-        // استخدام أبعاد صورتك العمودية الأصلية 100%
+        // محاولة تحميل الصورة المحلية، وإذا فشلت يستخدم رابط خارجي (عشان تضمن إنه يرسل)
+        const background = await Canvas.loadImage(imagePath).catch(async () => {
+            console.log("فشل قراءة الملف المحلي، جاري استخدام الرابط الاحتياطي...");
+            return await Canvas.loadImage('https://r2.dotphoto.com/u/f/666/36886e8a-e522-4217-9150-f8600f912e75.png'); 
+        });
+        
         const canvas = Canvas.createCanvas(background.width, background.height);
         const ctx = canvas.getContext('2d');
         ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
-        // وضع صورة العضو في الزاوية العلوية (المكان الأسود)
+        // --- [ وضع صورة العضو في الزاوية العلوية اليمنى ] ---
         const radius = 65;
-        const centerX = canvas.width - radius - 55; // يمين
-        const centerY = radius + 60;               // أعلى
+        const centerX = canvas.width - radius - 55; 
+        const centerY = radius + 60;               
 
         ctx.save();
         ctx.beginPath();
@@ -55,7 +59,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
         });
 
     } catch (e) {
-        console.error("فشل العثور على الصورة، تأكد من وجود background.png:", e.message);
+        console.error("خطأ قاتل في الترحيب:", e.message);
     }
 });
 

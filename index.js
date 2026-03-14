@@ -33,7 +33,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
     if (welcomeChannel) {
         try {
             // رسم صورة الترحيب
-            const background = await Canvas.loadImage(path.join(__dirname, 'background.png'));
+            const background = await Canvas.loadImage(path.join(__dirname, 'https://ibb.co/XfZTmbfV'));
             const canvas = Canvas.createCanvas(background.width, background.height);
             const ctx = canvas.getContext('2d');
             ctx.drawImage(background, 0, 0, canvas.width, canvas.height);

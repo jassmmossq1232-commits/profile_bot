@@ -1,130 +1,129 @@
 const { Client, GatewayIntentBits, Partials, EmbedBuilder, Events, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField } = require('discord.js');
 const express = require('express');
 
-// --- [ نظام تشغيل 24 ساعة ] ---
+// --- [ تشغيل 24 ساعة ] ---
 const app = express();
-app.get('/', (req, res) => res.send('Comprehensive Bot is Online! ✅'));
+app.get('/', (req, res) => res.send('System Active ✅'));
 app.listen(process.env.PORT || 3000);
 
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-    ],
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
     partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
-// --- [ ⚙️ الإعدادات - ضع الآيديات هنا ] ---
+// --- [ ⚙️ لوحة التحكم - عدل كل شيء من هنا بسهولة ] ---
 const CONFIG = {
-    adminRoleId: "1479291690094428300",
-    logsChannelId: "1479291991471952024",
-    welcomeChannelId: "1479292362675982497",
+    prefix: "!",
     embedColor: "#2b2d31",
-    prefix: "!" // البريفكس الخاص بالأوامر
+    welcomeChannelId: "1479292362675982497",
+    mentionRoleId: "1479291984836427978", // المنشن الإضافي
+    adminRoleId: "1479291690094428300",
+    logsChannelId: "1479292317147070545",
+    
+    // تعديل أسامي التذاكر بسهولة هنا
+    ticketOptions: [
+        { label: "دعم فني", emoji: "🛠️", value: "support", desc: "فتح تذكرة للتحدث مع الدعم" },
+        { label: "تقديم شكوى", emoji: "🚫", value: "report", desc: "فتح تذكرة لتقديم بلاغ" },
+        { label: "استفسار عام", emoji: "❓", value: "ask", desc: "فتح تذكرة للاستفسارات" }
+    ]
 };
 
-const token = process.env.TOKEN;
-
-// --- [ 1. نظام الترحيب ] ---
+// --- [ 1. نظام الترحيب المطابق لطلبك ] ---
 client.on(Events.GuildMemberAdd, async (member) => {
     const channel = member.guild.channels.cache.get(CONFIG.welcomeChannelId);
-    if (channel) {
-        const welcomeEmbed = new EmbedBuilder()
-            .setColor(CONFIG.embedColor)
-            .setTitle("عضو جديد وصل! 🎉")
-            .setDescription(`أهلاً بك <@${member.id}> في السيرفر، نورتنا!`)
-            .setThumbnail(member.user.displayAvatarURL())
-            .setTimestamp();
-        channel.send({ embeds: [welcomeEmbed] });
-    }
+    if (!channel) return;
+
+    const welcomeEmbed = new EmbedBuilder()
+        .setColor(CONFIG.embedColor)
+        .setAuthor({ name: member.guild.name, iconURL: member.guild.iconURL() })
+        .setTitle(`Welcome to ${member.guild.name}`) 
+        .setDescription(`حياك الله يا <@${member.id}> في سيرفرنا!\nنتمنى لك أمتع الأوقات.\n\n**أنت العضو رقم:** \`${member.guild.memberCount}\``)
+        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+        .setFooter({ text: `ID: ${member.id}` })
+        .setTimestamp();
+
+    channel.send({ 
+        content: `حياك الله <@${member.id}> | <@&${CONFIG.mentionRoleId}>`, 
+        embeds: [welcomeEmbed] 
+    });
 });
 
-// --- [ 2. الرد التلقائي ] ---
-client.on(Events.MessageCreate, (message) => {
-    if (message.author.bot) return;
-
-    const autoReplies = {
-        "السلام عليكم": "وعليكم السلام ورحمة الله وبركاته، نورت يا بطل! ❤️",
-        "كيفك": "بخير عساك بخير، كيف أقدر أخدمك؟ ✨",
-        "مساعدة": "أهلاً بك، يمكنك كتابة `!setup` لفتح نظام التذاكر."
-    };
-
-    if (autoReplies[message.content]) {
-        message.reply(autoReplies[message.content]);
-    }
-});
-
-// --- [ 3. نظام البرودكاست (إرسال للكل) ] ---
+// --- [ 2. برودكاست متطور مع العداد ] ---
 client.on(Events.MessageCreate, async (message) => {
-    if (message.content.startsWith(CONFIG.prefix + 'bc') && message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        const args = message.content.split(' ').slice(1).join(' ');
-        if (!args) return message.reply("❌ يرجى كتابة الرسالة بعد الأمر. مثال: `!bc السلام عليكم`.");
+    if (message.author.bot || !message.content.startsWith(CONFIG.prefix + 'bc')) return;
+    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
-        message.guild.members.cache.forEach(member => {
-            if (member.user.bot) return;
-            member.send(`${args}\n\n**من سيرفر: ${message.guild.name}**`).catch(() => console.log(`فشل الإرسال لـ ${member.user.tag}`));
-        });
-        message.reply("✅ جاري إرسال البرودكاست لجميع الأعضاء...");
+    const bcMsg = message.content.split(' ').slice(1).join(' ');
+    if (!bcMsg) return message.reply("❌ اكتب الرسالة! مثال: `!bc السلام عليكم`.");
+
+    const members = await message.guild.members.fetch();
+    const total = members.filter(m => !m.user.bot).size;
+    let success = 0;
+    let failed = 0;
+
+    let statusMsg = await message.channel.send(`⏳ جاري الإرسال إلى **${total}** عضو...`);
+
+    for (const [id, member] of members) {
+        if (member.user.bot) continue;
+        try {
+            await member.send(`${bcMsg}\n\n**Sent from: ${message.guild.name}**`);
+            success++;
+        } catch (e) {
+            failed++;
+        }
     }
+
+    statusMsg.edit(`✅ **انتهى الإرسال بنجاح!**\n\n👥 إجمالي المحاولة: \`${total}\`\n✅ تم الإرسال لـ: \`${success}\`\n❌ فشل الإرسال لـ: \`${failed}\` (بسبب إغلاق الخاص)`);
 });
 
-// --- [ 4. نظام التذاكر واللوق ] ---
+// --- [ 3. نظام التذاكر (سهل التغيير) ] ---
 client.on(Events.MessageCreate, async (message) => {
     if (message.content === CONFIG.prefix + 'setup' && message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         const embed = new EmbedBuilder()
-            .setTitle("مركز الدعم الفني 🎫")
-            .setDescription("اختر القسم المناسب لفتح تذكرة وسيتم الرد عليك.")
+            .setTitle("نظام التذاكر | Support System")
+            .setDescription("اختر القسم المناسب من القائمة بالأسفل")
             .setColor(CONFIG.embedColor);
 
         const menu = new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder()
-                .setCustomId('ticket_menu')
-                .setPlaceholder('إختر نوع القسم')
-                .addOptions([
-                    { label: "دعم فني", emoji: "🛠️", value: "دعم_فني" },
-                    { label: "تقديم بلاغ", emoji: "🚫", value: "بلاغ" }
-                ])
+                .setCustomId('ticket_select')
+                .setPlaceholder('إختر نوع التذكرة')
+                .addOptions(CONFIG.ticketOptions.map(opt => ({
+                    label: opt.label,
+                    emoji: opt.emoji,
+                    value: opt.value,
+                    description: opt.desc
+                })))
         );
-        await message.channel.send({ embeds: [embed], components: [menu] });
+        message.channel.send({ embeds: [embed], components: [menu] });
     }
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
-    // فتح التذكرة
-    if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_menu') {
-        await interaction.deferReply({ ephemeral: true });
+    if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_select') {
         const channel = await interaction.guild.channels.create({
             name: `ticket-${interaction.user.username}`,
             type: ChannelType.GuildText,
             permissionOverwrites: [
                 { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                 { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-                { id: CONFIG.adminRoleId, allow: [PermissionsBitField.Flags.ViewChannel] },
-            ],
+                { id: CONFIG.adminRoleId, allow: [PermissionsBitField.Flags.ViewChannel] }
+            ]
         });
-        const closeBtn = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق').setStyle(ButtonStyle.Danger).setEmoji('🔒'));
-        await channel.send({ content: `<@${interaction.user.id}> | <@&${CONFIG.adminRoleId}>`, embeds: [new EmbedBuilder().setDescription(`مرحباً بك، لقد فتحت تذكرة في قسم: **${interaction.values[0]}**`).setColor(CONFIG.embedColor)], components: [closeBtn] });
-        await interaction.editReply(`✅ تم فتح تذكرتك بنجاح: ${channel}`);
+        const closeBtn = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('c_t').setLabel('إغلاق').setStyle(ButtonStyle.Danger));
+        await channel.send({ content: `<@${interaction.user.id}>`, embeds: [new EmbedBuilder().setDescription(`مرحباً بك، لقد اخترت قسم: **${interaction.values[0]}**`).setColor(CONFIG.embedColor)], components: [closeBtn] });
+        interaction.reply({ content: `✅ تذكرتك جاهزة: ${channel}`, ephemeral: true });
     }
 
-    // إغلاق التذكرة واللوق
-    if (interaction.isButton() && interaction.customId === 'close_ticket') {
-        await interaction.reply("🔒 جاري إغلاق التذكرة وحفظ السجلات...");
-        const messages = await interaction.channel.messages.fetch();
-        const logContent = messages.reverse().map(m => `${m.author.tag}: ${m.content}`).join('\n');
-        const logChannel = interaction.guild.channels.cache.get(CONFIG.logsChannelId);
-        
-        if (logChannel) {
-            await logChannel.send({ 
-                content: `📄 سجل إغلاق تذكرة: ${interaction.channel.name}`, 
-                files: [{ attachment: Buffer.from(logContent), name: `log-${interaction.channel.name}.txt` }] 
-            });
-        }
-        setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+    if (interaction.isButton() && interaction.customId === 'c_t') {
+        await interaction.reply("🔒 جاري إغلاق التذكرة...");
+        const msgs = await interaction.channel.messages.fetch();
+        const log = msgs.reverse().map(m => `${m.author.tag}: ${m.content}`).join('\n');
+        const logChan = interaction.guild.channels.cache.get(CONFIG.logsChannelId);
+        if (logChan) await logChan.send({ content: `سجل تذكرة ${interaction.channel.name}`, files: [{ attachment: Buffer.from(log), name: 'ticket-log.txt' }] });
+        setTimeout(() => interaction.channel.delete(), 4000);
     }
 });
 
-client.once('ready', () => console.log(`✅ ${client.user.tag} جاهز للعمل!`));
-client.login(token);
+client.once('ready', () => console.log(`✅ ${client.user.tag} Is Ready!`));
+client.login(process.env.TOKEN);

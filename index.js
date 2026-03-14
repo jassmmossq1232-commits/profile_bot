@@ -1,117 +1,105 @@
 const { Client, GatewayIntentBits, Partials, Events, PermissionsBitField, AttachmentBuilder } = require('discord.js');
 const Canvas = require('canvas');
+const path = require('path');
 const express = require('express');
 
-// نظام تشغيل 24 ساعة لـ Render ومنع التكرار
+// نظام تشغيل البوت 24 ساعة
 const app = express();
-app.get('/', (req, res) => res.send('Bot Online ✅'));
+app.get('/', (req, res) => res.send('System Online ✅'));
 app.listen(process.env.PORT || 3000);
 
 const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ],
     partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
-// --- [ ⚙️ الإعدادات - تأكد من صحة الآيديات ] ---
+// --- [ ⚙️ الإعدادات ] ---
 const CONFIG = {
     prefix: "!",
-    welcomeChannelId: "1479292362675982497", // آيدي روم الترحيب
-    autoRoleId: "1479291984836427978",      // آيدي رتبة المواطن
-    invitedById: "1193908571096756298",     // آيدي الشخص المنشن
+    welcomeChannelId: "1479292362675982497", // روم الترحيب
+    autoRoleId: "1479291984836427978",      // رتبة المواطن
+    invitedById: "1193908571096756298"      // الشخص الداعي
 };
 
-// متغير لمنع التكرار نهائياً
-let lastMemberId = null;
+// نظام مانع التكرار (Anti-Spam) لضمان عدم إرسال رسالتين
+let antiSpam = new Set();
 
-// --- [ 1. نظام الترحيب بالصورة أولاً ثم النص عالي الوضوح ] ---
+// --- [ 1. نظام إضافة الرتبة + الترحيب ] ---
 client.on(Events.GuildMemberAdd, async (member) => {
     if (member.user.bot) return;
 
-    // حل مشكلة تكرار الإرسال
-    if (lastMemberId === member.id) return;
-    lastMemberId = member.id;
-    setTimeout(() => { lastMemberId = null; }, 5000);
+    // منع التكرار اللحظي
+    if (antiSpam.has(member.id)) return;
+    antiSpam.add(member.id);
+    setTimeout(() => antiSpam.delete(member.id), 10000);
 
-    // إضافة الرتبة التلقائية (المواطن)
+    // أ- إضافة الرتبة تلقائياً
     const role = member.guild.roles.cache.get(CONFIG.autoRoleId);
-    if (role) await member.roles.add(role).catch(() => console.log("Role Error"));
+    if (role) await member.roles.add(role).catch(() => console.log("فشل إضافة الرتبة"));
 
+    // ب- إرسال الترحيب (صورة HD أولاً ثم نص)
     const channel = member.guild.channels.cache.get(CONFIG.welcomeChannelId);
     if (channel) {
         try {
-            // إنشاء لوحة رسم بأبعاد أفقية قياسية للوضوح (800x400) لضمان عدم ضغط الصورة
-            const canvas = Canvas.createCanvas(800, 400); 
+            // سحب الصورة من ملفاتك مباشرة لضمان أعلى جودة
+            const background = await Canvas.loadImage(path.join(__dirname, 'background.png'));
+            const canvas = Canvas.createCanvas(background.width, background.height);
             const ctx = canvas.getContext('2d');
-            
-            // رسم خلفية سوداء نقية مصقولة بدقة
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
-            // إضافة نص COMING SOON باللون الذهبي المطابق ( HD)
-            ctx.font = 'bold 50px sans-serif';
-            ctx.fillStyle = '#C5A059'; // لون ذهبي مطابق للمثال
-            ctx.textAlign = 'center';
-            ctx.fillText('COMING SOON', canvas.width / 2, canvas.height / 2 + 120);
-
-            // رسم صورة العضو بشكل دائري عالي الدقة على اليمين
-            const radius = 80;
-            const centerX = canvas.width - radius - 50; 
-            const centerY = radius + 50; 
+            // رسم دائرة الصورة الشخصية
+            const radius = 65;
+            const centerX = canvas.width - radius - 60;
+            const centerY = radius + 60;
 
             ctx.save();
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius, 0, Math.PI * 2, true);
             ctx.closePath();
             ctx.clip();
-            
-            // سحب الصورة بأعلى جودة (size: 512) لضمان النقاء
             const avatar = await Canvas.loadImage(member.user.displayAvatarURL({ extension: 'png', size: 512 }));
             ctx.drawImage(avatar, centerX - radius, centerY - radius, radius * 2, radius * 2);
             ctx.restore();
 
-            const attachment = new AttachmentBuilder(canvas.toBuffer(), { name: 'welcome-hd.png' });
+            const attachment = new AttachmentBuilder(canvas.toBuffer(), { name: 'welcome.png' });
 
-            // ⚠️ التعديل الجوهري: إرسال الصورة أولاً
+            // إرسال الصورة أولاً
             await channel.send({ files: [attachment] });
-
-            // ⚠️ التعديل الجوهري: إرسال النص المطابق لطلبك بعد الصورة
+            
+            // إرسال النص تحتها مباشرة
             await channel.send({ 
-                content: `**| - Welcome To SYNCE RP**\n**| - Member Name :** <@${member.id}>\n**| - Invited By :** <@${CONFIG.invitedById}>`
+                content: `**| - Welcome To SYNC RP**\n**| - Member Name :** <@${member.id}>\n**| - Invited By :** <@${CONFIG.invitedById}>`
             });
-
-        } catch (e) {
-            console.error("Welcome Error:", e);
-        }
+        } catch (e) { console.error("تأكد من رفع ملف background.png بجانب index.js"); }
     }
 });
 
-// --- [ 2. نظام البرودكاست المطور (للخاص مع تقرير) ] ---
+// --- [ 2. نظام البرودكاست (الخاص) ] ---
 client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot || !message.content.startsWith(CONFIG.prefix + 'bc')) return;
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
     const bcMsg = message.content.split(' ').slice(1).join(' ');
-    if (!bcMsg) return message.reply("❌ اكتب الرسالة!");
+    if (!bcMsg) return message.reply("❌ اكتب الرسالة التي تريد إرسالها للجميع.");
 
     const members = await message.guild.members.fetch();
-    const totalMembers = members.filter(m => !m.user.bot).size;
     let success = 0;
-    let failed = 0;
-
-    let status = await message.channel.send(`⏳ جاري الإرسال لـ **${totalMembers}** عضو...`);
+    let status = await message.channel.send(`⏳ جاري إرسال البرودكاست...`);
 
     for (const [id, member] of members) {
         if (member.user.bot) continue;
         try {
             await member.send(`${bcMsg}\n\n**رسالة من سيرفر: ${message.guild.name}**`);
             success++;
-            if (success % 10 === 0) await status.edit(`⏳ جاري الإرسال... (تم: ${success} | فشل: ${failed})`);
-        } catch (e) {
-            failed++;
-        }
+        } catch (e) {}
     }
-    await status.edit(`✅ **انتهى البرودكاست!**\n\n👥 الإجمالي: \`${totalMembers}\`\n✅ ناجح: \`${success}\`\n❌ فشل (خاص مغلق): \`${failed}\``);
+    await status.edit(`✅ تم الإرسال لـ ${success} عضو بنجاح.`);
 });
 
-client.once('ready', () => console.log(`✅ ${client.user.tag} Online HD Welcome!`));
+client.once('ready', () => console.log(`✅ ${client.user.tag} جاهز بجميع الأنظمة!`));
 client.login(process.env.TOKEN);

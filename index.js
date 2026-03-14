@@ -1,99 +1,82 @@
-const { Client, GatewayIntentBits, Partials, Events, PermissionsBitField, AttachmentBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Events, AttachmentBuilder } = require('discord.js');
 const Canvas = require('canvas');
 const path = require('path');
 const express = require('express');
 
+// نظام تشغيل البوت 24 ساعة
 const app = express();
-app.get('/', (req, res) => res.send('System HD Online 🍊'));
+app.get('/', (req, res) => res.send('Welcome System HD Online ✅'));
 app.listen(process.env.PORT || 3000);
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.GuildMembers, // ضروري جداً لرصد دخول الأعضاء
     ],
-    partials: [Partials.Message, Partials.Channel, Partials.Reaction],
+    partials: [Partials.User, Partials.GuildMember],
 });
 
-// --- [ ⚙️ الإعدادات ] ---
+// --- [ الإعدادات ] ---
 const CONFIG = {
-    prefix: "!",
-    welcomeChannelId: "1467260591767949609",
-    autoRoleId: "1479291984836427978", // رتبة المواطن (موجودة ✅)
-    invitedById: "1193908571096756298"
+    welcomeChannelId: "1467260591767949609", // ايدي روم الترحيب
+    invitedById: "1272279633341059146"       // ايدي الشخص الداعي
 };
 
+// نظام مانع التكرار لضمان إرسال رسالة واحدة فقط
 let antiSpam = new Set();
 
-// --- [ 1. نظام إضافة الرتبة + الترحيب ] ---
 client.on(Events.GuildMemberAdd, async (member) => {
     if (member.user.bot) return;
 
-    // منع التكرار (رسالة واحدة فقط)
+    // منع التكرار اللحظي
     if (antiSpam.has(member.id)) return;
     antiSpam.add(member.id);
     setTimeout(() => antiSpam.delete(member.id), 10000); 
 
-    // أ- إضافة الرتبة التلقائية (تمت الإضافة ✅)
-    const role = member.guild.roles.cache.get(CONFIG.autoRoleId);
-    if (role) {
-        await member.roles.add(role).catch(err => console.log("خطأ في الرتبة: تأكد من رفع رتبة البوت فوق رتبة المواطن."));
-    }
-
-    // ب- إرسال الترحيب بصورة HD
     const channel = member.guild.channels.cache.get(CONFIG.welcomeChannelId);
-    if (channel) {
-        try {
-            const background = await Canvas.loadImage(path.join(__dirname, 'background.png'));
-            const canvas = Canvas.createCanvas(background.width, background.height);
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+    if (!channel) return;
 
-            const radius = 75; 
-            const centerX = canvas.width / 2; 
-            const centerY = 145; 
+    try {
+        // 1. تحميل الخلفية من ملفات البوت لضمان الجودة الأصلية HD
+        // ملاحظة: يجب أن يكون اسم ملف الصورة في GitHub هو background.png
+        const background = await Canvas.loadImage(path.join(__dirname, 'background.png'));
+        
+        // إنشاء الكانفاس بنفس أبعاد الصورة العمودية الأصلية
+        const canvas = Canvas.createCanvas(background.width, background.height);
+        const ctx = canvas.getContext('2d');
+        
+        // رسم الخلفية
+        ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2, true);
-            ctx.closePath();
-            ctx.clip();
-            const avatar = await Canvas.loadImage(member.user.displayAvatarURL({ extension: 'png', size: 512 }));
-            ctx.drawImage(avatar, centerX - radius, centerY - radius, radius * 2, radius * 2);
-            ctx.restore();
+        // 2. ضبط صورة العضو في الزاوية العلوية اليمنى (المنطقة الفارغة)
+        const radius = 65; // حجم الدائرة
+        const centerX = canvas.width - radius - 50; // إزاحة من اليمين
+        const centerY = radius + 50;               // إزاحة من الأعلى
 
-            const attachment = new AttachmentBuilder(canvas.toBuffer(), { name: 'welcome-hd.png' });
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2, true);
+        ctx.closePath();
+        ctx.clip();
+        
+        // جلب صورة العضو بدقة 512
+        const avatar = await Canvas.loadImage(member.user.displayAvatarURL({ extension: 'png', size: 512 }));
+        ctx.drawImage(avatar, centerX - radius, centerY - radius, radius * 2, radius * 2);
+        ctx.restore();
 
-            await channel.send({ files: [attachment] });
-            await channel.send({ 
-                content: `**| - Welcome To SYNC RP**\n**| - Member Name :** <@${member.id}>\n**| - Invited By :** <@${CONFIG.invitedById}>`
-            });
-        } catch (e) { console.error("تأكد من وجود background.png"); }
+        const attachment = new AttachmentBuilder(canvas.toBuffer(), { name: 'welcome-hd.png' });
+
+        // 3. الترتيب: إرسال الصورة أولاً
+        await channel.send({ files: [attachment] });
+        
+        // 4. إرسال النص تحت الصورة مباشرة
+        await channel.send({ 
+            content: `**| - Welcome To SYNC RP**\n**| - Member Name :** <@${member.id}>\n**| - Invited By :** <@${CONFIG.invitedById}>`
+        });
+
+    } catch (e) {
+        console.error("خطأ: تأكد من رفع ملف الصورة باسم background.png في GitHub بجانب index.js");
     }
-});
-
-// --- [ 2. نظام البرودكاست (الخاص)  ] ---
-client.on(Events.MessageCreate, async (message) => {
-    if (message.author.bot || !message.content.startsWith(CONFIG.prefix + 'bc')) return;
-    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
-
-    const bcMsg = message.content.split(' ').slice(1).join(' ');
-    if (!bcMsg) return message.reply("❌ اكتب الرسالة للإرسال في الخاص!");
-
-    const members = await message.guild.members.fetch();
-    let success = 0;
-    let status = await message.channel.send(`⏳ جاري الإرسال للجميع...`);
-
-    for (const [id, member] of members) {
-        if (member.user.bot) continue;
-        try {
-            await member.send(`${bcMsg}\n\n**سيرفر: ${message.guild.name}**`);
-            success++;
-        } catch (e) {}
-    }
-    await status.edit(`✅ تم الإرسال لـ ${success} عضو بنجاح.`);
 });
 
 client.login(process.env.TOKEN);

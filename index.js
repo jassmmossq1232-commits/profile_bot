@@ -14,7 +14,7 @@ const client = new Client({
 const CONFIG = {
     prefix: "!",
     embedColor: "#ff0000", // اللون الأحمر مثل صورتك الأخيرة
-    welcomeChannelId: "123456789", // ضع هنا آيدي روم الترحيب (أرقام فقط)
+    welcomeChannelId: "1479292362675982497", // ضع هنا آيدي روم الترحيب (أرقام فقط)
     thirdPersonMentionId: "123456789", // ضع هنا آيدي الشخص أو الرتبة التي تود منشنها (أرقام فقط)
     adminRoleId: "123456789", // آيدي رتبة الإدارة
     logsChannelId: "123456789", // آيدي روم اللوق
